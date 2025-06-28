@@ -1,11 +1,18 @@
 #include <Bluepad32.h>
-#include <CAN.h>
+// #include <CAN.h>
+#include <ESP32-TWAI-CAN.hpp>
+#include <driver/twai.h>
+
 #include <math.h>
+
 
 // Forget用ピン番号
 #define forgetPin 16
 // バッテリ残量LED用ピン番号
 #define batteryStatePin 2
+
+#define CAN_TX 5
+#define CAN_RX 4
 
 
 
@@ -40,6 +47,7 @@ int axisDeadzone = 120;
 
 // --- internal value ---
 
+CanFrame rxFrame;
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
 //                u  d  l  r  a  b  x  y l1 r1 l2 r2 ls rs
@@ -59,10 +67,25 @@ bool isFirstCall = true;
 void setup() {
   Serial.begin(115200);
 
-  if (!CAN.begin(1000E3)) {
-    Serial.println("Starting CAN failed!");
-    while (1);
+
+  ESP32Can.setPins(CAN_TX, CAN_RX);
+  ESP32Can.setRxQueueSize(5);
+  ESP32Can.setTxQueueSize(5);
+  ESP32Can.setSpeed(ESP32Can.convertSpeed(1000));
+
+  // フィルタ：0x220～0x223のうち、bit1無視して0x221/0x223だけ受け入れる
+  static twai_filter_config_t f_config = {
+    .acceptance_code = (0x220 << 21),  // ACR: 共通部分を左詰め
+    .acceptance_mask = (0x2 << 21),    // AMR: bit1を無視（bit1に1を立てる）
+    .single_filter = true
+  };
+
+  if (ESP32Can.begin(TWAI_SPEED_SIZE, -1, -1, 0xFFFF, 0xFFFF, &f_config)) {
+    Serial.println("CAN bus started!");
+  } else {
+    Serial.println("CAN bus failed!");
   }
+
 
   const uint8_t* addr = BP32.localBdAddress();
   if (isVerbose) {
@@ -98,8 +121,13 @@ void loop() {
   // This call fetches all the controllers' data.
   // Call this function in your main loop.
   bool dataUpdated = BP32.update();
-  if (dataUpdated)
+  if (dataUpdated) {
     processControllers();
+  }
+
+  if (ESP32Can.readFrame(rxFrame, 1000)) {
+    parseCANFrame(rxFrame.data);
+  }
 
   // The main loop must have some kind of "yield to lower priority task" event.
   // Otherwise, the watchdog will get triggered.
@@ -112,32 +140,74 @@ void loop() {
   // Serial.println(rawAxiState[0]);
 }
 
+void parseCANFrame(uint8_t rxPayload[]) {
+  uint8_t txPayload[8] = {};
+  int len;
 
+  switch (rxPayload[0]) {
+    case 7:
+      {
+        if (rxPayload[1] == 2) {
+          // Heartbeat
+          uint8_t buf[] = { 7, 0 };
+          len = sizeof(buf);
+          arrcpy(buf, txPayload, len);
 
-uint8_t intArrayToByte(int arr[], int len){
-  if(len > 8){
+          sendCANFrame(txPayload, len);
+        }
+        break;
+      }
+
+    default:
+      {
+      }
+  }
+}
+
+void sendCANFrame(uint8_t payload[], int len) {
+  CanFrame frame = { 0 };
+  frame.identifier = 0x222;  // Code:17 Id:1 isSendfromMain:0
+  frame.extd = 0;            // standard frame
+  frame.data_length_code = len;
+
+  for (int i = 0; i < len; i++) {
+    frame.data[i] = payload[i];
+  }
+
+  // Accepts both pointers and references
+  ESP32Can.writeFrame(frame);  // timeout defaults to 1 ms
+}
+
+void arrcpy(uint8_t* src, uint8_t* dest, int len) {
+  for (int i = 0; i < len; i++) {
+    dest[i] = src[i];
+  }
+}
+
+uint8_t intArrayToByte(int arr[], int len) {
+  if (len > 8) {
     len = 8;
   }
 
-  if(len != 8){
-    for(int i = 0; i < (8 - len); i++){
+  if (len != 8) {
+    for (int i = 0; i < (8 - len); i++) {
       arr[len + i] = 0;
     }
   }
 
   int byte = 0;
 
-  if(isBitFlip){
+  if (isBitFlip) {
     int arr_flip[8];
 
-    for(int i = 0; i < len; i++){
+    for (int i = 0; i < len; i++) {
       arr_flip[i] = arr[len - 1 - i];
     }
 
     arr = arr_flip;
   }
 
-  for(int i = 0; i < len; i++){
+  for (int i = 0; i < len; i++) {
     byte += arr[i] * pow(2, i);
   }
 
@@ -216,30 +286,29 @@ void dumpController_UART() {
   Serial.println(axiState[3]);
 }
 
-void dumpController_CAN(){
-  CAN.beginPacket(0x022); // Address of Main
+void dumpController_CAN() {
+  uint8_t payload[8];
 
-  CAN.write(6); // Payload Header 6: Data
+  payload[0] = 6;   // Payload Header: Data
+  payload[1] = 10;  // Controller Input
 
   int buffer[8];
-  for(int i = 0; i < 8; i++){
+  for (int i = 0; i < 8; i++) {
     buffer[i] = btnState[i];
   }
-  // send [u d l r a b x y]
-  CAN.write(intArrayToByte(buffer, 8));
+  payload[2] = intArrayToByte(buffer, 8);
 
   int buffer1[6];
-  for(int i = 0; i < 6; i++){
+  for (int i = 0; i < 6; i++) {
     buffer1[i] = btnState[8 + i];
   }
-  // send [l1 r1 l2 r2 ls rs]
-  CAN.write(intArrayToByte(buffer1, 6));
+  payload[3] = intArrayToByte(buffer1, 6);
 
-  for(int i = 0; i < 4; i++){
-    CAN.write((uint8_t) axiState[i]);
+  for (int i = 0; i < 4; i++) {
+    payload[4 + i] = (uint8_t)axiState[i];
   }
 
-  CAN.endPacket();
+  sendCANFrame(payload, 8);
 }
 
 bool compareArray(int arr1[], int arr2[], int length) {
@@ -384,18 +453,18 @@ void processGamepad(ControllerPtr ctl) {
 
   for (int i = 0; i < 4; i++) {
     axiState[i] = axisNormalize(rawAxiState[i]);
-    if(isCommCAN){
+    if (isCommCAN) {
       axiState[i] += 128;
     }
   }
 
   if (!compareArray(btnState, preBtnState, 12) || !compareArray(axiState, preAxiState, 4)) {
-    if(isCommCAN){
-        dumpController_CAN();
+    if (isCommCAN) {
+      dumpController_CAN();
     } else {
-        dumpController_UART();
+      dumpController_UART();
     }
-    
+
     for (int i = 0; i < 14; i++) {
       preBtnState[i] = btnState[i];
     }
@@ -416,4 +485,3 @@ void processControllers() {
     }
   }
 }
-
