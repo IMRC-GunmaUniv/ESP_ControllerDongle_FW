@@ -219,6 +219,8 @@ void dumpController_UART() {
 void dumpController_CAN(){
   CAN.beginPacket(0x022); // Address of Main
 
+  CAN.write(6); // Payload Header 6: Data
+
   int buffer[8];
   for(int i = 0; i < 8; i++){
     buffer[i] = btnState[i];
