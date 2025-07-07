@@ -31,7 +31,7 @@ bool isBitFlip = false;
 int canAxisOffset = 128;
 
 // シリアル送信間隔
-int updateDuration = 50;
+int updateDuration = 20;
 
 // 詳細情報のシリアル送信の有効化／無効化
 bool isVerbose = false;
@@ -72,6 +72,8 @@ void setup() {
   ESP32Can.setRxQueueSize(5);
   ESP32Can.setTxQueueSize(5);
   ESP32Can.setSpeed(ESP32Can.convertSpeed(1000));
+
+  pinMode(19, OUTPUT);
 
   // フィルタ：0x220～0x223のうち、bit1無視して0x221/0x223だけ受け入れる
   static twai_filter_config_t f_config = {
@@ -125,9 +127,11 @@ void loop() {
     processControllers();
   }
 
-  if (ESP32Can.readFrame(rxFrame, 1000)) {
+  /*
+  if (ESP32Can.readFrame(rxFrame, 10)) {
     parseCANFrame(rxFrame.data);
   }
+  */
 
   // The main loop must have some kind of "yield to lower priority task" event.
   // Otherwise, the watchdog will get triggered.
@@ -287,6 +291,10 @@ void dumpController_UART() {
 }
 
 void dumpController_CAN() {
+  digitalWrite(19, HIGH);
+  delay(10);
+  digitalWrite(19, LOW);
+
   uint8_t payload[8];
 
   payload[0] = 6;   // Payload Header: Data
