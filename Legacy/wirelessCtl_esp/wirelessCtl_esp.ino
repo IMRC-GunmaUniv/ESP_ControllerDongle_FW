@@ -169,8 +169,8 @@ void parseCANFrame(uint8_t rxPayload[]) {
 }
 
 void sendCANFrame(uint8_t payload[], int len) {
-  CanFrame frame = { 0 };
-  frame.identifier = 0x222;  // Code:17 Id:1 isSendfromMain:0
+  CanFrame frame[8] = { 0 };
+  frame.identifier = 0x262;  // Code:17 Id:1 isSendfromMain:0
   frame.extd = 0;            // standard frame
   frame.data_length_code = len;
 
@@ -297,26 +297,26 @@ void dumpController_CAN() {
 
   uint8_t payload[8];
 
-  payload[0] = 6;   // Payload Header: Data
-  payload[1] = 10;  // Controller Input
+  // index:6 entry:0
+  payload[0] = 0xC0;
 
   int buffer[8];
   for (int i = 0; i < 8; i++) {
     buffer[i] = btnState[i];
   }
-  payload[2] = intArrayToByte(buffer, 8);
+  payload[1] = intArrayToByte(buffer, 8);
 
   int buffer1[6];
   for (int i = 0; i < 6; i++) {
     buffer1[i] = btnState[8 + i];
   }
-  payload[3] = intArrayToByte(buffer1, 6);
+  payload[2] = intArrayToByte(buffer1, 6);
 
   for (int i = 0; i < 4; i++) {
-    payload[4 + i] = (uint8_t)axiState[i];
+    payload[3 + i] = (uint8_t)axiState[i];
   }
 
-  sendCANFrame(payload, 8);
+  sendCANFrame(payload, 7);
 }
 
 bool compareArray(int arr1[], int arr2[], int length) {
