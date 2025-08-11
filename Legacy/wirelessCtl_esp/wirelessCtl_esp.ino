@@ -170,7 +170,7 @@ void parseCANFrame(uint8_t rxPayload[]) {
 
 void sendCANFrame(uint8_t payload[], int len) {
   twai_message_t frame = { 0 };
-  frame.identifier = 0x262;  // Code:17 Id:1 isSendfromMain:0
+  frame.identifier = 0x222;  // Code:17 Id:1 isSendfromMain:0
   frame.extd = 0;            // standard frame
   frame.data_length_code = len;
 
