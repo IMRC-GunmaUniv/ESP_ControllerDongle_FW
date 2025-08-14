@@ -31,14 +31,14 @@ bool isBitFlip = false;
 int canAxisOffset = 128;
 
 // シリアル送信間隔
-int updateDuration = 20;
+int updateDuration = 10;
 
 // 詳細情報のシリアル送信の有効化／無効化
 bool isVerbose = false;
 
 // スティックの解像度
 // つまり速度が停止と何段階か
-int axisResolution = 4;
+int axisResolution = 127;
 
 // スティックのデッドゾーン
 int axisDeadzone = 120;
@@ -60,6 +60,8 @@ int preBtnState[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 int preAxiState[] = { 0, 0, 0, 0 };
 
 bool isFirstCall = true;
+
+int lastHeartbeatTime = 0;
 
 
 
@@ -127,6 +129,11 @@ void loop() {
     processControllers();
   }
 
+  if((millis() - lastHeartbeatTime) >= 1000){
+    sendHeartbeat();
+    lastHeartbeatTime = millis();
+  }
+
   /*
   if (ESP32Can.readFrame(rxFrame, 10)) {
     parseCANFrame(rxFrame.data);
@@ -144,6 +151,15 @@ void loop() {
   // Serial.println(rawAxiState[0]);
 }
 
+void sendHeartbeat(){
+  uint8_t buf[] = { 0x04 };
+
+  len = sizeof(buf);
+  arrcpy(buf, txPayload, len);
+
+  sendCANFrame(txPayload, len);
+}
+
 void parseCANFrame(uint8_t rxPayload[]) {
   uint8_t txPayload[8] = {};
   int len;
@@ -152,12 +168,7 @@ void parseCANFrame(uint8_t rxPayload[]) {
     case 7:
       {
         if (rxPayload[1] == 2) {
-          // Heartbeat
-          uint8_t buf[] = { 7, 0 };
-          len = sizeof(buf);
-          arrcpy(buf, txPayload, len);
-
-          sendCANFrame(txPayload, len);
+          sendHeartbeat();
         }
         break;
       }
@@ -490,6 +501,12 @@ void processControllers() {
       } else {
         Serial.println("ERROR: Unsupported controller");
       }
+    }
+
+    if(!myController->isConnected()){
+      // disconnected
+      uint8_t ret[1] = {0x21};
+      sendCANFrame(ret, 1);
     }
   }
 }
