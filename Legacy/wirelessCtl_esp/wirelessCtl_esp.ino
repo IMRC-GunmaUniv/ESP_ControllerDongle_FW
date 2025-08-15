@@ -61,7 +61,7 @@ int preAxiState[] = { 0, 0, 0, 0 };
 
 bool isFirstCall = true;
 
-int lastHeartbeatTime = 0;
+long lastHeartbeatTime = 0;
 
 
 
@@ -154,8 +154,8 @@ void loop() {
 void sendHeartbeat(){
   uint8_t buf[] = { 0x04 };
 
-  len = sizeof(buf);
-  arrcpy(buf, txPayload, len);
+  txPayload[8] = {0};
+  arrcpy(buf, txPayload, 1);
 
   sendCANFrame(txPayload, len);
 }
