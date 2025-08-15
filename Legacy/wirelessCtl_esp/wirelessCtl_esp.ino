@@ -38,7 +38,7 @@ bool isVerbose = false;
 
 // スティックの解像度
 // つまり速度が停止と何段階か
-int axisResolution = 127;
+int axisResolution = 4;
 
 // スティックのデッドゾーン
 int axisDeadzone = 120;
@@ -154,10 +154,10 @@ void loop() {
 void sendHeartbeat(){
   uint8_t buf[] = { 0x04 };
 
-  txPayload[8] = {0};
+  uint8_t txPayload[8] = {0};
   arrcpy(buf, txPayload, 1);
 
-  sendCANFrame(txPayload, len);
+  sendCANFrame(txPayload, 1);
 }
 
 void parseCANFrame(uint8_t rxPayload[]) {
@@ -503,10 +503,12 @@ void processControllers() {
       }
     }
 
-    if(!myController->isConnected()){
+    /*
+    if(myController->isConnected() == 0){
       // disconnected
       uint8_t ret[1] = {0x21};
       sendCANFrame(ret, 1);
     }
+    */
   }
 }
