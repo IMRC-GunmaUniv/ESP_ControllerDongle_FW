@@ -33,7 +33,7 @@ bool isBitFlip = false;
 int canAxisOffset = 128;
 
 // シリアル送信間隔
-int updateDuration = 50;
+int updateDuration = 10;
 
 // 詳細情報のシリアル送信の有効化／無効化
 bool isVerbose = false;
@@ -63,6 +63,8 @@ int preAxiState[] = { 0, 0, 0, 0 };
 
 bool isFirstCall = true;
 
+long lastHeartbeatTime = 0;
+
 
 
 // Arduino setup function. Runs in CPU 1
@@ -75,6 +77,8 @@ void setup() {
   ESP32Can.setRxQueueSize(5);
   ESP32Can.setTxQueueSize(5);
   ESP32Can.setSpeed(ESP32Can.convertSpeed(1000));
+
+  pinMode(19, OUTPUT);
 
   // フィルタ：0x220～0x223のうち、bit1無視して0x221/0x223だけ受け入れる
   static twai_filter_config_t f_config = {
@@ -128,9 +132,16 @@ void loop() {
     processControllers();
   }
 
-  if (ESP32Can.readFrame(rxFrame, 1000)) {
+  if((millis() - lastHeartbeatTime) >= 1000){
+    sendHeartbeat();
+    lastHeartbeatTime = millis();
+  }
+
+  /*
+  if (ESP32Can.readFrame(rxFrame, 10)) {
     parseCANFrame(rxFrame.data);
   }
+  */
 
   // The main loop must have some kind of "yield to lower priority task" event.
   // Otherwise, the watchdog will get triggered.
@@ -143,6 +154,15 @@ void loop() {
   // Serial.println(rawAxiState[0]);
 }
 
+void sendHeartbeat(){
+  uint8_t buf[] = { 0x04 };
+
+  uint8_t txPayload[8] = {0};
+  arrcpy(buf, txPayload, 1);
+
+  sendCANFrame(txPayload, 1);
+}
+
 void parseCANFrame(uint8_t rxPayload[]) {
   uint8_t txPayload[8] = {};
   int len;
@@ -151,12 +171,7 @@ void parseCANFrame(uint8_t rxPayload[]) {
     case 7:
       {
         if (rxPayload[1] == 2) {
-          // Heartbeat
-          uint8_t buf[] = { 7, 0 };
-          len = sizeof(buf);
-          arrcpy(buf, txPayload, len);
-
-          sendCANFrame(txPayload, len);
+          sendHeartbeat();
         }
         break;
       }
@@ -168,7 +183,7 @@ void parseCANFrame(uint8_t rxPayload[]) {
 }
 
 void sendCANFrame(uint8_t payload[], int len) {
-  CanFrame frame = { 0 };
+  twai_message_t frame = { 0 };
   frame.identifier = 0x222;  // Code:17 Id:1 isSendfromMain:0
   frame.extd = 0;            // standard frame
   frame.data_length_code = len;
@@ -290,28 +305,32 @@ void dumpController_UART() {
 }
 
 void dumpController_CAN() {
+  digitalWrite(19, HIGH);
+  delay(10);
+  digitalWrite(19, LOW);
+
   uint8_t payload[8];
 
-  payload[0] = 6;   // Payload Header: Data
-  payload[1] = 10;  // Controller Input
+  // index:6 entry:0
+  payload[0] = 0xC0;
 
   int buffer[8];
   for (int i = 0; i < 8; i++) {
     buffer[i] = btnState[i];
   }
-  payload[2] = intArrayToByte(buffer, 8);
+  payload[1] = intArrayToByte(buffer, 8);
 
   int buffer1[6];
   for (int i = 0; i < 6; i++) {
     buffer1[i] = btnState[8 + i];
   }
-  payload[3] = intArrayToByte(buffer1, 6);
+  payload[2] = intArrayToByte(buffer1, 6);
 
   for (int i = 0; i < 4; i++) {
-    payload[4 + i] = (uint8_t)axiState[i];
+    payload[3 + i] = (uint8_t)axiState[i];
   }
 
-  sendCANFrame(payload, 8);
+  sendCANFrame(payload, 7);
 }
 
 bool compareArray(int arr1[], int arr2[], int length) {
@@ -485,5 +504,13 @@ void processControllers() {
         // Serial.println("ERROR: Unsupported controller");
       }
     }
+
+    /*
+    if(myController->isConnected() == 0){
+      // disconnected
+      uint8_t ret[1] = {0x21};
+      sendCANFrame(ret, 1);
+    }
+    */
   }
 }
