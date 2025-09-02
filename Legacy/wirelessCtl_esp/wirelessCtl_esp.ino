@@ -5,6 +5,8 @@
 
 #include <math.h>
 
+#include <WiFi.h>
+
 
 // Forget用ピン番号
 #define forgetPin 16
@@ -65,8 +67,9 @@ bool isFirstCall = true;
 
 // Arduino setup function. Runs in CPU 1
 void setup() {
-  Serial.begin(115200);
+  // Serial.begin(115200);
 
+  WiFi.disconnect(true);
 
   ESP32Can.setPins(CAN_TX, CAN_RX);
   ESP32Can.setRxQueueSize(5);
@@ -81,16 +84,16 @@ void setup() {
   };
 
   if (ESP32Can.begin(TWAI_SPEED_SIZE, -1, -1, 0xFFFF, 0xFFFF, &f_config)) {
-    Serial.println("CAN bus started!");
+    // Serial.println("CAN bus started!");
   } else {
-    Serial.println("CAN bus failed!");
+    // Serial.println("CAN bus failed!");
   }
 
 
   const uint8_t* addr = BP32.localBdAddress();
   if (isVerbose) {
-    Serial.printf("Firmware: %s\n", BP32.firmwareVersion());
-    Serial.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+    // Serial.printf("Firmware: %s\n", BP32.firmwareVersion());
+    // Serial.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
   }
   // Setup the Bluepad32 callbacks
   BP32.setup(&onConnectedController, &onDisconnectedController);
@@ -327,13 +330,12 @@ void onConnectedController(ControllerPtr ctl) {
   bool foundEmptySlot = false;
   for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
     if (myControllers[i] == nullptr) {
-      Serial.println("INFO: Controller is connected");
+      // Serial.println("INFO: Controller is connected");
       // Additionally, you can get certain gamepad properties like:
       // Model, VID, PID, BTAddr, flags, etc.
       ControllerProperties properties = ctl->getProperties();
       if (isVerbose) {
-        Serial.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName().c_str(), properties.vendor_id,
-                      properties.product_id);
+        // Serial.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName().c_str(), properties.vendor_id, properties.product_id);
       }
       myControllers[i] = ctl;
       foundEmptySlot = true;
@@ -341,7 +343,7 @@ void onConnectedController(ControllerPtr ctl) {
     }
   }
   if (!foundEmptySlot && isVerbose) {
-    Serial.println("INFO: Controller connected, but could not found empty slot");
+    // Serial.println("INFO: Controller connected, but could not found empty slot");
   }
 }
 
@@ -350,8 +352,8 @@ void onDisconnectedController(ControllerPtr ctl) {
 
   for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
     if (myControllers[i] == ctl) {
-      Serial.printf("INFO: Controller disconnected", i);
-      Serial.println();
+      // Serial.printf("INFO: Controller disconnected", i);
+      // Serial.println();
       myControllers[i] = nullptr;
       foundController = true;
       break;
@@ -359,7 +361,7 @@ void onDisconnectedController(ControllerPtr ctl) {
   }
 
   if (!foundController && isVerbose) {
-    Serial.println("INFO: Controller disconnected, but not found in myControllers");
+    // Serial.println("INFO: Controller disconnected, but not found in myControllers");
   }
 }
 
@@ -480,7 +482,7 @@ void processControllers() {
       if (myController->isGamepad()) {
         processGamepad(myController);
       } else {
-        Serial.println("ERROR: Unsupported controller");
+        // Serial.println("ERROR: Unsupported controller");
       }
     }
   }
