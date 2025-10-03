@@ -5,6 +5,8 @@
 #include <WiFi.h>
 #include <math.h>
 
+#include <WiFi.h>
+
 
 // Forget用ピン番号
 #define forgetPin 16
@@ -71,6 +73,7 @@ void setup() {
 
   WiFi.disconnect(true);
 
+  WiFi.disconnect(true);
 
   ESP32Can.setPins(CAN_TX, CAN_RX);
   ESP32Can.setRxQueueSize(16);
