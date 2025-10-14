@@ -270,6 +270,70 @@ void processControllers() {
     }
 }
 
+
+int getBtnState(String key){
+  // getBtnState("A")で、〇ボタンのon/offが返ってくる
+  // 押されてれば1、押されてなければ0
+
+  String keyMap[] = {"UP", "DOWN", "LEFT", "RIGHT", "A", "B", "X", "Y", "L1", "R1", "L2", "R2", "LS", "RS"};
+
+  for(int i = 0; i < 14; i++){
+    if(keyMap[i] == key){
+      return btnState[i];
+    }
+  }
+
+  return 0;
+}
+
+
+
+if(getBtnState("L1") == 1){
+  // つかむ
+  tukamu(1);
+}
+if(getBtnState("DOWN") == 1){
+  // 前に進む
+  move(-1, 0);
+}
+if(getBtnState("LEFT") == 1){
+  // 前に進む
+  move(0, 1);
+}
+if(getBtnState("RIGHT") == 1){
+  // 前に進む
+  move(0, -1);
+}
+
+
+
+int getAxiState(String key, bool isBin = false){
+  // getAxiState("LY")で、スティックの軸の正規化された値が返ってくる
+  // Xは右が+、Yは下が+
+  // 範囲はESPのプログラムによって変わるけど、暫定-5 ~ 5？
+
+  String keyMap[] = {"LX", "LY", "RX", "RY"};
+  int binThreshold = 2;
+
+  for(int i = 0; i < 4; i++){
+    if(keyMap[i] == key){
+      if(isBin){
+        if(axiState[i] >= binThreshold){
+          return 1;
+        } else if(axiState[i] <= -binThreshold){
+          return -1;
+        } else {
+          return 0;
+        }
+      } else {
+        return axiState[i];
+      }
+    }
+  }
+
+  return 0;
+}
+
 // Arduino setup function. Runs in CPU 1
 void setup() {
     Serial.begin(115200);
