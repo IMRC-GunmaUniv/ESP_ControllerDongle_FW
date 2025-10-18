@@ -1,11 +1,9 @@
-// wirelessCtl.ino standalone v1.0
+// wirelessCtl.ino standalone v1.1
 
 // 重要
 // 変数や関数の名前の最初の文字が"_"になっているものは触らない、アクセスしないことをお勧めします。
 // 実装していくうえで、このプログラムについての疑問点やバグとかを見つけたら、#プログラム系で連絡してください。
 
-
-#include <Bluepad32.h>
 
 ControllerPtr _cont_myControllers[BP32_MAX_GAMEPADS];
 
