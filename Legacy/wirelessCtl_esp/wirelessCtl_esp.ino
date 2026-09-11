@@ -286,27 +286,6 @@ int getBtnState(String key){
   return 0;
 }
 
-
-
-if(getBtnState("L1") == 1){
-  // つかむ
-  tukamu(1);
-}
-if(getBtnState("DOWN") == 1){
-  // 前に進む
-  move(-1, 0);
-}
-if(getBtnState("LEFT") == 1){
-  // 前に進む
-  move(0, 1);
-}
-if(getBtnState("RIGHT") == 1){
-  // 前に進む
-  move(0, -1);
-}
-
-
-
 int getAxiState(String key, bool isBin = false){
   // getAxiState("LY")で、スティックの軸の正規化された値が返ってくる
   // Xは右が+、Yは下が+
@@ -383,5 +362,4 @@ void loop() {
 
     //     vTaskDelay(1);
     delay(updateDuration);
-    // Serial.println(rawAxiState[0]);
 }
